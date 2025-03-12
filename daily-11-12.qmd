@@ -6,11 +6,15 @@ format:
   html:
     self-contained: true
 editor: visual
+execute:
+  echo: true
 ---
 Part 1:
 ```{r}
 library(tidyverse)
 library(visdat)
+library(ggpubr)
+library(ggplot2)
 
 str(airquality)
 summary(airquality)
@@ -77,8 +81,6 @@ Temp, season, solar radiation all have positive coeffcients, meaning that as ozo
 Part 5:
 ```{r}
 (pred <- augment(model, normalized_data))
-
-#library(ggpubr)
 
 ```
 Part 5 cont.
