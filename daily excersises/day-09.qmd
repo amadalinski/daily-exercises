@@ -1,0 +1,58 @@
+---
+title: "Daily Exercise 9/10"
+format: html
+self-contained: true
+execute: 
+  echo: true
+---
+1,2
+
+```{r}
+library(tidyverse)
+library(visdat)
+library(broom)
+?airquality
+vis_dat(airquality)
+
+airquality <- airquality |>
+  distinct()
+
+cleaned_data <- airquality |>
+  drop_na()
+```
+3.
+```{r}
+model <- lm(Ozone ~ Temp, data = airquality)
+  lm(formula = Ozone ~ Temp, data = airquality)
+```
+I chose temp as the predictor value because I made an estimated guess that it would have a relationship to ozone. In addtion, the temp data did not have any NA values so I would not have to worry about cleaning the data before working with it.
+
+4.
+```{r}
+summary(model)
+```
+This does seem like a valid model, as the p-value is small.
+
+5. The R squared is 0.48, which means that 48% of the variability is explained by the regression model.
+
+6.
+```{r}
+ broom::augment(model) 
+```
+7.
+```{r}
+ ggplot(data = airquality,
+        aes(x = Temp, y = Ozone)) +
+   geom_point() +
+   geom_abline(intercept = 0, slope = 1, color = "red") +
+   labs(title = "Actual vs. Predicted Ozone Related to Temperature",
+        x = "Temperature",
+        subtitle = "Correlation between actual and predicted ozone: 0.7") +
+   theme_bw()
+   
+a <- augment(model, newdata = cleaned_data)
+ head(data)
+ 
+ paste("Correlation:", round(cor(a$Ozone, a$.fitted),2))
+```
+

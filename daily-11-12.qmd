@@ -1,0 +1,120 @@
+---
+title: "Daily Exercise 11/12"
+author: "Ava Madalinski"
+date: 03/07/2025
+format: 
+  html:
+    self-contained: true
+editor: visual
+---
+Part 1:
+```{r}
+library(tidyverse)
+library(visdat)
+
+str(airquality)
+summary(airquality)
+
+airquality <- airquality |>
+  distinct()
+```
+This data represents air quality measurements (ozone, solar radiation, wind, temperature) taken in New York over a period of 6 months. 
+```{r}
+shapiro.test(airquality$Ozone)
+shapiro.test(airquality$Wind)
+shapiro.test(airquality$Solar.R)
+shapiro.test(airquality$Temp)
+```
+
+The purpose of the Shapiro-Wilks test is to test whether or not the data is normally distributed. the null hypothesis is that the data is normally distributed and the alternative hypothesis is that the data is not normally distributed. The p-values indicate that all of the variables, except for wind are not normally distributed as they are all lower than 0.05. Wind's p-value is higher than 0.05, therefore this variable is normally distributed. 
+
+Part 2:
+```{r}
+airquality <- airquality |>
+  mutate(Season = case_when(
+    Month %in% c(11, 12, 1) ~ "Winter",
+    Month %in% c(2, 3, 4) ~ "spring",
+    Month %in% c(5, 6, 7) ~ "Summer",
+    Month %in% c(8, 9, 10) ~ "Fall"
+  ))
+print(airquality)
+
+season_count <- table(airquality$Season)
+print(season_count)
+```
+
+Part 3:
+```{r}
+library(tidymodels)
+
+(recipe <- recipe(Ozone ~ Temp + Solar.R + Wind + Season,
+                  data = airquality) |>
+   step_impute_mean(all_numeric_predictors()) |>
+   step_dummy(all_factor_predictors()) |>
+   step_normalize(all_numeric_predictors()))
+
+prep_recipe <- prep(recipe, training = airquality)
+
+normalized_data <- bake(prep_recipe, new_data = NULL) |>
+  drop_na()
+
+print(normalized_data)
+
+
+```
+Normalizing the data is important as it makes the data easier to work with. It reduces errors, gets rid of NA values, and makes the data consistent throughout the data frame. 
+The function step_meanimpute can be used to impute missing values with the mean. 
+Prep has to be used in order to estimate the parameters for the training set, so it can then be used on the real data, which is what the bake function does. 
+
+Part 4:
+```{r}
+(model = lm(Ozone ~ . , data = normalized_data))
+summary(model)
+
+```
+Temp, season, solar radiation all have positive coeffcients, meaning that as ozone increases, these variables also increase. Wind has a negative coeffcient, so when ozone increases, wind decreases. Temperature, wind, and solar radiation all have very small p-values, which means that they are statistically significant factors when looking at the response variable, ozone. However, Season has a high p-value, meaning it is not statistically significant. This model has an R squared of 0.59, meaning that 59% of the variance can be determined by the response variable, ozone. 
+
+Part 5:
+```{r}
+(pred <- augment(model, normalized_data))
+
+#library(ggpubr)
+
+```
+Part 5 cont.
+```{r}
+residuals <- pred$.resid
+
+histogram_plot <- ggplot(pred, aes(x = .resid)) +
+  geom_histogram(binwidth = 3, color = "black", fill = "skyblue")+
+  theme_classic() +
+  labs(
+    title = "Residuals",
+    x = "Residuals",
+    y = "Frequency")
+```
+Part 5 cont.
+```{r}
+qq_plot <- ggplot(pred, aes(sample = .resid)) +
+  geom_qq() +
+  geom_qq_line(color = "red") +
+  theme_minimal() +
+  labs(title = "QQ Plot of Residuals")
+
+```
+
+```{r}
+ggarrange(histogram_plot, qq_plot, 
+          ncol = 2, nrow = 1, 
+          labels = c("A", "B"))
+
+```
+
+```{r}
+ggscatter(pred,
+         x = "Ozone", y = ".fitted",
+         add = "reg.line", conf.int = TRUE, 
+         cor.coef = TRUE, cor.method = "spearman",
+         ellipse = TRUE)
+```
+I feel that this is a decently strong model. There is quite a bit of variation, however the p-value is small, suggesting that our predictor variables are statistically significant when it comes to the response variable. In addtion, as shown in the QQ plot, the data is normally distributed, with few outliers. 
