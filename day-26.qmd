@@ -1,0 +1,36 @@
+---
+title: "day-26"
+format: html
+---
+
+```{r}
+library(terra)
+
+url <- 'https://raw.githubusercontent.com/mikejohnson51/csu-ess-330/refs/heads/main/resources/foco-elev-cm.tif'
+vsi_url <- paste0('/vsicurl/', url)
+r <- terra::rast(vsi_url)
+```
+This is a data set in a raster file with elevation values surrounding Fort Collins. Each pixel has an elevation value in centimeters. 
+
+```{r}
+r_cm <- rast(paste0('/vsicurl/', url))
+r_ft <- r_cm * 0.0328084
+plot(r_ft, main = "Elevation in Fort Collins (feet)")
+```
+```{r}
+df <- values(r_ft, dataframe = TRUE)
+
+library(ggpubr)
+
+ggdensity(
+  df, x = "dem",
+  fill = "lightblue", color = "darkblue",
+  add = "mean", rug = TRUE,
+  xlab = "Elevation (feet)",
+  ylab = "Density",
+  title = "Density Plot of Elevation in Fort Collins (ft)"
+) +
+  theme_pubr()
+
+```
+

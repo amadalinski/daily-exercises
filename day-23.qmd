@@ -1,0 +1,45 @@
+---
+title: "Daily Excerise 24"
+format: 
+  html:
+    self-contained: true
+editor: visual
+execute:
+  echo: true
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+library(AOI)
+
+
+cities <- readr::read_csv("uscities.csv")
+
+cities_sf <- st_as_sf(cities, coords = c("lng", "lat"), crs = 4326)
+```
+
+```{r}
+larimer <- aoi_get(state = "CO", county = "Larimer")
+
+cities_in_lc <- st_filter(cities_sf, larimer)
+
+top_cities <- cities_in_lc |>
+  arrange(desc(population)) |>
+  slice_head(n = 3)
+
+library(ggrepel)
+
+ggplot() +
+  geom_sf(data = larimer, fill = "white", color = "black") +
+  geom_sf(data = cities_in_lc, color = "red", size = 2) + 
+  geom_sf(data = top_cities, color = "skyblue", size = 3) +
+  geom_label_repel(
+    data = top_cities,
+    aes(label = city, geometry = geometry),
+    stat = "sf_coordinates",
+    size = 2) +
+  labs(title = "Cities in Larimer County, Colorado") +
+  theme_minimal()
+
+```

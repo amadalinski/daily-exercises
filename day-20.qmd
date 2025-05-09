@@ -1,0 +1,49 @@
+---
+title: "Daily Exercise 21"
+author: "Ava Madalinski"
+date: 04/20/2025
+format: 
+  html:
+    self-contained: true
+editor: visual
+execute:
+  echo: true
+---
+
+```{r}
+library(dataRetrieval)
+library(tidyverse)
+library(tsibble)
+library(plotly)
+library(feasts)
+
+# Example: Cache la Poudre River at Mouth (USGS site 06752260)
+poudre_flow <- readNWISdv(siteNumber = "06752260",    # Download data from USGS for site 06752260
+                          parameterCd = "00060",      # Parameter code 00060 = discharge in cfs)
+                          startDate = "2013-01-01",   # Set the start date
+                          endDate = "2023-12-31") |>  # Set the end date
+  renameNWISColumns() |>                              # Rename columns to standard names (e.g., "Flow", "Date")
+  mutate(Date = yearmonth(Date)) |>                   # Convert daily Date values into a year-month format (e.g., "2023 Jan")
+  group_by(Date) |>                                   # Group the data by the new monthly Date
+  summarise(Flow = mean(Flow))                       # Calculate the average daily flow for each month
+```
+
+```{r}
+streamflow_tsibble <- as_tsibble(poudre_flow, index = "Date")
+print(streamflow_tsibble)
+```
+
+```{r}
+ggplotly(ggplot(streamflow_tsibble, aes(x = Date, y = Flow)) +
+  geom_line(color = "steelblue", size = 1) +
+  labs(title = "Daily Streamflow", x = "Date", y = "Flow (cms)") +
+  theme_minimal())
+
+```
+
+```{r}
+gg_subseries(streamflow_tsibble) +
+  labs(title = "Monthly Streamflow Patterns", y = "Flow", x = "Date") +
+  theme_minimal()
+```
+The seasons are defined in this subseries graph through similar levels of stream flow. We can see that December, January, and February all have relatively low, similar levels of flow, as is expected in winter. It starts to increase in March and April, as expected with snow melt in the spring and then as it warms up to summer in May and June, the flow levels rise a very large amount. The subseries represent the stream flow for all years, sorted by months so that we can see trends and patterns thorughout the seasons and months.

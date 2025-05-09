@@ -1,0 +1,23 @@
+---
+title: "day-25"
+format: html
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+
+rivers <- st_read("/Users/avamadalinski/github/daily-exercises/majorrivers_0_0 (1)/MajorRivers.shp")
+
+rivers <- rivers |>
+  filter(SYSTEM == "Mississippi")
+  
+library(AOI)
+counties <- AOI::aoi_get(state = "all", county = "all")
+
+```
+
+```{r}
+
+```
+

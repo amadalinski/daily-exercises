@@ -1,0 +1,123 @@
+---
+title: "Daily Exercise 22"
+author: "Ava Madalinski"
+date: 04/23/2025
+format: 
+  html:
+    self-contained: true
+editor: visual
+execute:
+  echo: true
+---
+
+```{r}
+library(modeltime)
+library(tidymodels)
+library(timetk)
+library(earth)
+library(tibbletime)
+library(lubridate)
+library(dataRetrieval)
+
+#Inputting Stream flow Data
+poudre_flow <- readNWISdv(siteNumber = "06752260",  
+                          parameterCd = "00060",    
+                          startDate = "2013-01-01",   
+                          endDate = "2023-12-31") %>% 
+  renameNWISColumns() %>%
+  mutate(Date = as.Date(Date)) %>%
+  mutate(month = floor_date(Date, "month")) %>%
+  group_by(Date) %>%
+  summarise(Flow = mean(Flow, na.rm = TRUE)) %>%
+  ungroup()
+```
+
+```{r}
+sf_tbl <-  tsibble::as_tsibble(poudre_flow)
+```
+
+```{r}
+#Prophet Model
+model_prophet <- prophet_reg(seasonality_yearly = TRUE) %>%
+  set_engine("prophet") %>%
+  fit(Flow ~ Date, data = poudre_flow)
+
+#Arima Model
+model_arima <- arima_reg() %>%
+  set_engine("auto_arima") %>%
+  fit(Flow ~ Date, data = poudre_flow)
+```
+
+```{r}
+(models_tbl <- modeltime_table(model_arima, model_prophet))
+```
+
+```{r}
+library(prophet)
+future_tbl <- poudre_flow %>%
+  future_frame(.date_var = Date, .length_out = "12 months", .bind_data = FALSE)
+
+forecast_tbl <- models_tbl %>%
+  modeltime_forecast(
+    new_data = future_tbl,
+    actual_data = poudre_flow)
+
+forecast_tbl %>%
+  plot_modeltime_forecast(.interactive = FALSE)
+```
+
+```{r}
+#Download and Aggregate data
+
+poudre_2024 <- readNWISdv(siteNumber = "06752260",
+                          parameterCd = "00060",
+                          startDate = "2024-01-01",
+                          endDate = "2024-12-31") %>%
+  renameNWISColumns() %>%
+  mutate(Date = as.Date(Date),
+         month = floor_date(Date, "month")) %>%
+  group_by(month) %>%
+  summarise(Observed = mean(Flow, na.rm = TRUE)) %>%
+  rename(Date = month)
+```
+
+```{r}
+library(zoo)
+
+forecast_2024 <- forecast_tbl %>%
+  filter(.key == "prediction", .index >= as.Date("2024-01-01") & .index <= as.Date("2024-12-31")) %>%
+  mutate(month = floor_date(.index, "month")) %>%
+  group_by(month) %>%
+  summarise(Predicted = mean(.value, na.rm = TRUE)) %>%
+  rename(Date = month)
+
+comparison_tbl <- forecast_2024 %>%
+  left_join(poudre_2024, by = "Date") %>%
+  drop_na()
+
+print(comparison_tbl)
+```
+
+```{r}
+#R-Squared
+r2_model <- lm(Observed ~ Predicted, data = comparison_tbl)
+r2_summary <- summary(r2_model)
+r2_value <- r2_summary$r.squared
+cat("R-squared value:", round(r2_value, 3), "\n")
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(comparison_tbl, aes(x = Predicted, y = Observed)) +
+  geom_abline(intercept = 0, slope = 1, color = "gray50", linetype = "dashed", size = 1) +
+  geom_smooth(method = "lm", se = TRUE, color = "deeppink2", fill = "rosybrown1", alpha = 0.3) +
+  geom_point(size = 1, color = "darkslateblue") +
+  labs(
+    title = "Predicted vs Observed Monthly Streamflow",
+    subtitle = "With 1:1 Line (Gray) and Linear Fit (Pink)",
+    x = "Predicted Streamflow (cfs)",
+    y = "Observed Streamflow (cfs)") +
+  theme_minimal() +
+  coord_equal()
+```

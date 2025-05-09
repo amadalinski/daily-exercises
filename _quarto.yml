@@ -1,0 +1,8 @@
+project: 
+  title: "day-27-28"
+  output-dir: docs
+  type: website
+
+format:
+  html: 
+    self-conatined: true

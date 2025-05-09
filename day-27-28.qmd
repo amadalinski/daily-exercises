@@ -1,0 +1,104 @@
+---
+title: "Daily Assignment 27 & 28"
+format:
+  html:
+    self-contained: true
+editor: visual
+---
+
+```{r}
+library(osmdata)
+library(sf)
+library(dplyr)
+library(raster)
+library(terra)
+library(ggplot2)
+
+fc = AOI::geocode("Fort Collins", bbox = TRUE)
+foco_rivers <- osmdata::opq(st_bbox(st_transform(fc,4326))) |> 
+  add_osm_feature("waterway") |> 
+  osmdata_sf()
+```
+
+Define River Object
+```{r}
+river_lines <- foco_rivers$osm_lines
+
+poudre_river <- river_lines |> 
+  dplyr::filter(name == "Cache la Poudre River")
+
+poudre_merged <- st_union(poudre_river)
+poudre_sf <- st_as_sf(data.frame(geometry = poudre_merged), crs = st_crs(poudre_river))  
+  
+river_length_m <- st_length(poudre_sf)
+
+poudre_pts <- st_cast(poudre_sf, "POINT")
+```
+
+Define DEM Object
+```{r}
+dem <- rast('https://raw.githubusercontent.com/mikejohnson51/csu-ess-330/refs/heads/main/resources/foco-elev-cm.tif')
+```
+
+Extract River Profile
+```{r}
+river_points <- as.points(dem, values = TRUE)
+elevation_values <- extract(dem, river_points)
+
+river_df <- as.data.frame(river_points)
+result <- bind_cols(river_df, elevation_values[,-1])
+
+result <- result |>
+  mutate(ID = seq_len(n()))
+```
+
+Compute Sinuosity
+```{r}
+
+#first_point <- poudre_sf[1, ]
+#last_point  <- poudre_sf[nrow(poudre_sf), ]
+#distance <- st_distance(first_point, last_point)
+
+river_sf <- st_as_sf(river_points)
+first_point <- river_sf[1, ]
+last_point  <- river_sf[nrow(river_sf), ]
+distance <- st_distance(first_point, last_point)
+print(distance)
+
+sinuosity = river_length_m/distance
+```
+These calculations gave me a sinuosity of 6.12. This value indicates an extremely high level of curving compared to a straight line. However, this does make sense for the Poudre River, as the river is generally known for its windiness and there are very few straight parts, even on the North Fork.
+
+Compute Slope
+```{r}
+elev_inlet  <- result$dem[1] / 100
+elev_outlet <- result$dem[nrow(result)] / 100
+slope <- (elev_inlet - elev_outlet) / river_length_m
+print(slope)
+```
+The slope of the Poudre river is 0.0009 meters, or a 0.09% slope.
+
+Map Profile
+```{r}
+ggplot(result, aes(x = ID, y = dem)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "darkred", size = 2) +
+  labs(
+    title = "Elevation Profile Along the River",
+    x = "Point ID (From Inlet to Outlet)",
+    y = "Elevation (cm)"
+  ) +
+  theme_minimal() 
+```
+
+```{r}
+ggplot(river_sf) +
+  geom_sf(aes(color = dem), size = 2) + 
+  scale_color_viridis_c(name = "Elevation (cm)", option = "plasma") +
+  labs(
+    title = "Spatial River Profile",
+    subtitle = "River points colored from high to low elevation",
+  ) +
+  theme_minimal()
+```
+
